@@ -23,8 +23,8 @@ bl_info = {
     "version": (0, 0, 1),
     "blender": (2, 70, 0),
     "location": "Node Editor > Tool Shelf (T)",
-    "warning": "If pillow or pil is not installed, blender api will be used and it can be"
-               " a memory monster for a few seconds.",
+    "warning": "If pillow or pil is not installed, blender api will be used and "
+               "it may use a lot of memory for a few seconds.",
     "wiki_url": "",
     "tracker_url": "",
     "category": "Node"
@@ -220,18 +220,24 @@ try:
         # with pil after changing node selection.
         # there was one but it was in the draw method of the panel class,
         # and it was constantly loading image from hd. so not very usable.
-        # for now this will bypass alpha channel if there is not one. and wont update the add-on ui.
+        # for now (for consistency with blender api version) this will create a white image
+        # if there is no alpha channel,
+        # and wont update alpha channel button visibility in the add-on ui.
+        # (if there is, it will extract alpha channel.)
         if a:
+            bwfilename = "{}_alpha.{}".format(basename_without_extension, ext)
+            bwfilepath = os.path.join(save_dir, bwfilename)
             if aa:
-                bwfilename = "{}_alpha.{}".format(basename_without_extension, ext)
-                bwfilepath = os.path.join(save_dir, bwfilename)
                 aa.save(bwfilepath, img_format)
-                load_image_created_with_pil(bwfilepath, is_create_texture_node)
                 del aa
-                remained -= 1
-                wm.progress_update(remained)
             else:
-                pass
+                alpha_img = Image.new('L', img.size, 255)
+                alpha_img.save(bwfilepath, img_format)
+                del alpha_img
+
+            load_image_created_with_pil(bwfilepath, is_create_texture_node)
+            remained -= 1
+            wm.progress_update(remained)
 
         del img
         wm.progress_end()
