@@ -33,7 +33,6 @@ bl_info = {
 import os.path
 import bpy
 
-
 from bpy.props import (StringProperty,
                        BoolProperty,
                        IntProperty,
@@ -48,6 +47,7 @@ from bpy.types import (Panel,
 
 try:
     from PIL import Image
+
     is_pil_imported = True
 
     # ---------------------------------------------------------------------
@@ -93,6 +93,7 @@ try:
             # node_texture.select = True
             # nodes.active = node_texture
 
+
     # ---------------------------------------------------------------------
     def create_and_save_single_channel_images_with_pil(context, img_path):
 
@@ -120,10 +121,21 @@ try:
             save_dir = os.path.dirname(img_path)
 
         img_format = ics.image_format_menu
-        if img_format in ["PNG", "TIFF"]:
-            depth = ics.depth_menu
-        else:
-            depth = "8"
+        if img_format == "TARGA":
+            img_format = "tga"
+        ext_dict = {"JPEG": "jpg",
+                    "TIFF": "tif",
+                    "PNG": "png",
+                    "tga": "tga"}
+        ext = ext_dict[img_format]
+
+        # img_format = ics.image_format_menu
+
+        # TODO: implement 16 bit tiff + png for pil
+        # if img_format in ["png", "tiff"]:
+        #     depth = ics.depth_menu
+        # else:
+        #     depth = "8"
 
         is_create_texture_node = ics.is_create_texture_node
         is_unlink = ics.is_unlink
@@ -153,14 +165,14 @@ try:
             return
 
         if average:
-            bwfilename = "{}_average.{}".format(basename_without_extension, img_format.lower())
+            bwfilename = "{}_average.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
 
             # bwimg = convert_to_gs(img)
             rgb2xyz = (
                 0.33333, 0.33333, 0.33333, 0)
             bwimg = img.convert("L", rgb2xyz)
-            bwimg.save(bwfilepath, img_format.lower())
+            bwimg.save(bwfilepath, img_format)
             load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del bwimg
             remained -= 1
@@ -168,37 +180,37 @@ try:
             # ics.progress = "{} / {} done".format(total-remained, total)
 
         if weighted_average:
-            bwfilename = "{}_weighted_average.{}".format(basename_without_extension, img_format.lower())
+            bwfilename = "{}_weighted_average.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
             bwimg = img.convert('L')
-            bwimg.save(bwfilepath, img_format.lower())
+            bwimg.save(bwfilepath, img_format)
             load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del bwimg
             remained -= 1
             wm.progress_update(remained)
 
         if r:
-            bwfilename = "{}_red.{}".format(basename_without_extension, img_format.lower())
+            bwfilename = "{}_red.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
-            rr.save(bwfilepath, img_format.lower())
+            rr.save(bwfilepath, img_format)
             load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del rr
             remained -= 1
             wm.progress_update(remained)
 
         if g:
-            bwfilename = "{}_green.{}".format(basename_without_extension, img_format.lower())
+            bwfilename = "{}_green.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
-            gg.save(bwfilepath, img_format.lower())
+            gg.save(bwfilepath, img_format)
             load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del gg
             remained -= 1
             wm.progress_update(remained)
 
         if b:
-            bwfilename = "{}_blue.{}".format(basename_without_extension, img_format.lower())
+            bwfilename = "{}_blue.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
-            bb.save(bwfilepath, img_format.lower())
+            bb.save(bwfilepath, img_format)
             load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del bb
             remained -= 1
@@ -211,9 +223,9 @@ try:
         # for now this will bypass alpha channel if there is not one. and wont update the add-on ui.
         if a:
             if aa:
-                bwfilename = "{}_alpha.{}".format(basename_without_extension, img_format.lower())
+                bwfilename = "{}_alpha.{}".format(basename_without_extension, ext)
                 bwfilepath = os.path.join(save_dir, bwfilename)
-                aa.save(bwfilepath, img_format.lower())
+                aa.save(bwfilepath, img_format)
                 load_image_created_with_pil(bwfilepath, is_create_texture_node)
                 del aa
                 remained -= 1
@@ -307,6 +319,7 @@ def save_created_images_with_blender(img, img_format, depth, newfilename, save_d
         # node_texture.select = True
         # nodes.active = node_texture
 
+
 # # ---------------------------------------------------------------------
 # def get_chunks(l, n):
 #     """yields n-sized chunks from l."""
@@ -340,6 +353,12 @@ def create_single_channel_images_with_blender(context):
         save_dir = os.path.dirname(src_image.filepath)
 
     img_format = ics.image_format_menu
+    ext_dict = {"JPEG": "jpg",
+                "TIFF": "tif",
+                "PNG": "png",
+                "TARGA": "tga"}
+    ext = ext_dict[img_format]
+
     if img_format in ["PNG", "TIFF"]:
         depth = ics.depth_menu
     else:
@@ -370,7 +389,7 @@ def create_single_channel_images_with_blender(context):
     bpy.context.scene.ImageChannelSplitter.locationY = active_node.location[1] - height - 15
 
     if average:
-        newfilename = "{}_average.{}".format(basename_without_extension, img_format.lower())
+        newfilename = "{}_average.{}".format(basename_without_extension, ext)
         nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
@@ -388,7 +407,7 @@ def create_single_channel_images_with_blender(context):
         # ics.progress = "{} / {} done".format(total-remained, total)
 
     if weighted_average:
-        newfilename = "{}_weighted_average.{}".format(basename_without_extension, img_format.lower())
+        newfilename = "{}_weighted_average.{}".format(basename_without_extension, ext)
         nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
@@ -403,7 +422,7 @@ def create_single_channel_images_with_blender(context):
         wm.progress_update(remained)
 
     if r:
-        newfilename = "{}_red.{}".format(basename_without_extension, img_format.lower())
+        newfilename = "{}_red.{}".format(basename_without_extension, ext)
         nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
@@ -417,7 +436,7 @@ def create_single_channel_images_with_blender(context):
         wm.progress_update(remained)
 
     if g:
-        newfilename = "{}_green.{}".format(basename_without_extension, img_format.lower())
+        newfilename = "{}_green.{}".format(basename_without_extension, ext)
         nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
@@ -431,7 +450,7 @@ def create_single_channel_images_with_blender(context):
         wm.progress_update(remained)
 
     if b:
-        newfilename = "{}_blue.{}".format(basename_without_extension, img_format.lower())
+        newfilename = "{}_blue.{}".format(basename_without_extension, ext)
         nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
@@ -445,7 +464,7 @@ def create_single_channel_images_with_blender(context):
         wm.progress_update(remained)
 
     if a:
-        newfilename = "{}_alpha.{}".format(basename_without_extension, img_format.lower())
+        newfilename = "{}_alpha.{}".format(basename_without_extension, ext)
         nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
@@ -468,7 +487,6 @@ def create_single_channel_images_with_blender(context):
 # ------------------------------------------------------------------------
 
 class ICSPanelSettings(PropertyGroup):
-
     locationX = IntProperty(
         name="locationX",
         default=0
@@ -528,7 +546,7 @@ class ICSPanelSettings(PropertyGroup):
     )
 
     image_formats = [('TIFF', 'tif', '', 1),
-                     ('TGA', 'tga', '', 2),
+                     ('TARGA', 'tga', '', 2),
                      ('PNG', 'png', '', 3),
                      ('JPEG', 'jpg', '', 4),
                      ]
@@ -586,6 +604,16 @@ class SplitChannelsButton(bpy.types.Operator):
                 return True
 
     def execute(self, context):
+
+        ics = context.scene.ImageChannelSplitter
+
+        if ics.is_custom_save_path:
+            if not os.path.isdir(ics.custom_save_path):
+                msg = 'Custom save path could not be found!: "{}". Please correct the path and retry.'.format(
+                    ics.custom_save_path)
+                self.report({'WARNING'}, msg)
+                return {'FINISHED'}
+
         if is_pil_imported:
 
             src_image = context.active_node.image
@@ -630,6 +658,7 @@ class ImageChannelSplitterPanel(Panel):
     # bl_category = "ICS"
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'TOOLS'
+
     # bl_context = "scene"
 
 
