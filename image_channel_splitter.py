@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
+
 # BismillahirRahmanirRahim
 
 # project_name: 'blender_image_channel_splitter'
 # project_web: 'https://github.com/erdinc-me/blender_image_channel_splitter'
 # file_web: 'https://github.com/erdinc-me/blender_image_channel_splitter/blob/master/image_channel_splitter.py'
 # date: '06/22/16'
-# author: 'Erdinç Yılmaz'
+# author, maintainer : 'Erdinç Yılmaz'
 # author_web: 'http://erdinc.me'
 # author_github: 'https://github.com/erdinc-me/'
+# email: '@'
 # license: 'GPLv3, see LICENSE for more details'
 # LICENSE: 'https://github.com/erdinc-me/blender_image_channel_splitter/blob/master/LICENSE'
 # copyright: '(C) 2016 Erdinç Yılmaz.'
 # version: '1.0 RC'
-# maintainer: 'Erdinç Yılmaz'
-# email: '@'
 # status: 'Release Candidate'
 
 bl_info = {
@@ -37,14 +37,11 @@ import bpy
 from bpy.props import (StringProperty,
                        BoolProperty,
                        IntProperty,
-                       FloatProperty,
-                       FloatVectorProperty,
                        EnumProperty,
                        PointerProperty,
                        )
 from bpy.types import (Panel,
                        Operator,
-                       AddonPreferences,
                        PropertyGroup,
                        EnumProperty,
                        )
@@ -97,7 +94,7 @@ try:
             # nodes.active = node_texture
 
     # ---------------------------------------------------------------------
-    def create_single_channel_images_with_pil(context, img_path):
+    def create_and_save_single_channel_images_with_pil(context, img_path):
 
         ics = context.scene.ImageChannelSplitter
 
@@ -232,13 +229,13 @@ except ImportError:
 
 # ---------------------------------------------------------------------
 def get_chunks(l, n):
-    """Yield successive n-sized chunks from l."""
+    """yields n-sized chunks from l."""
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
 
 # ---------------------------------------------------------------------
-def save_bw_image(img, filepath, img_format, depth):
+def save_bw_image_with_blender(img, filepath, img_format, depth):
     settings = bpy.context.scene.render.image_settings
 
     # save current render settings of the scene
@@ -260,12 +257,12 @@ def save_bw_image(img, filepath, img_format, depth):
 
 
 # ---------------------------------------------------------------------
-def save_created_images(img, img_format, depth, newfilename, save_dir, is_create_texture_node):
+def save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_create_texture_node):
     # img.file_format = img_format
 
     img.filepath_raw = os.path.join(save_dir, newfilename)
     # img.save()
-    save_bw_image(img, img.filepath_raw, img_format, depth)
+    save_bw_image_with_blender(img, img.filepath_raw, img_format, depth)
     # if is_unlink:
     #     nimg.user_clear()
     #     bpy.data.images.remove(nimg)
@@ -387,7 +384,7 @@ def create_single_channel_images_with_blender(context):
         # nimg.pixels[:] = singlechannelpixellist
 
         del singlechannelpixellist
-        save_created_images(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
         # ics.progress = "{} / {} done".format(total-remained, total)
@@ -403,7 +400,7 @@ def create_single_channel_images_with_blender(context):
 
         nimg.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
@@ -417,7 +414,7 @@ def create_single_channel_images_with_blender(context):
 
         nimg.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
@@ -431,7 +428,7 @@ def create_single_channel_images_with_blender(context):
 
         nimg.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
@@ -445,7 +442,7 @@ def create_single_channel_images_with_blender(context):
 
         nimg.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
@@ -459,7 +456,7 @@ def create_single_channel_images_with_blender(context):
 
         nimg.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
@@ -614,7 +611,7 @@ class SplitChannelsButton(bpy.types.Operator):
                 self.report({'WARNING'}, msg)
                 return {'FINISHED'}
 
-            create_single_channel_images_with_pil(context, img_path)
+            create_and_save_single_channel_images_with_pil(context, img_path)
         else:
             create_single_channel_images_with_blender(context)
         # create_single_channel_images_with_blender(context)
