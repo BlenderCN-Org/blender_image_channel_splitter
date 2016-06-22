@@ -138,7 +138,6 @@ try:
         bpy.context.scene.ImageChannelSplitter.locationX = active_node.location[0]
         bpy.context.scene.ImageChannelSplitter.locationY = active_node.location[1] - height - 15
 
-
         # im = Image.open('image.gif')
         # rgb_im = im.convert('RGB')
         # r, g, b = rgb_im.getpixel((1, 1))
@@ -152,7 +151,6 @@ try:
             rr, gg, bb, aa = img.split()
         else:
             return
-
 
         if average:
             bwfilename = "{}_average.{}".format(basename_without_extension, img_format.lower())
@@ -206,6 +204,11 @@ try:
             remained -= 1
             wm.progress_update(remained)
 
+        # TODO: need to implement a checking mechanism for detecting alpha channel
+        # with pil after changing node selection.
+        # there was one but it was in the draw method of the panel class,
+        # and it was constantly loading image from hd. so not very usable.
+        # for now this will bypass alpha channel if there is not one. and wont update the add-on ui.
         if a:
             if aa:
                 bwfilename = "{}_alpha.{}".format(basename_without_extension, img_format.lower())
@@ -225,13 +228,6 @@ try:
 
 except ImportError:
     is_pil_imported = False
-
-
-# ---------------------------------------------------------------------
-def get_chunks(l, n):
-    """yields n-sized chunks from l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
 
 
 # ---------------------------------------------------------------------
@@ -311,10 +307,12 @@ def save_created_images_with_blender(img, img_format, depth, newfilename, save_d
         # node_texture.select = True
         # nodes.active = node_texture
 
+# # ---------------------------------------------------------------------
+# def get_chunks(l, n):
+#     """yields n-sized chunks from l."""
+#     for i in range(0, len(l), n):
+#         yield l[i:i + n]
 
-# ---------------------------------------------------------------------
-# def create_single_channel_images(src_image, save_dir, r, g, b, a, average, weighted_average, img_format,
-#                                  depth, is_create_texture_node, is_unlink):
 
 # ---------------------------------------------------------------------
 def create_single_channel_images_with_blender(context):
