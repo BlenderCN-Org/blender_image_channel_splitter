@@ -20,7 +20,7 @@ bl_info = {
     "name": "Image Channel Splitter",
     "description": "Splits image channels to individual single channel grayscale images. ",
     "author": "Erdinc Yilmaz",
-    "version": (0, 0, 1),
+    "version": (1, 0, 0),
     "blender": (2, 70, 0),
     "location": "Node Editor > Tool Shelf (T)",
     "warning": "If pillow or pil is not installed, blender api will be used and "
@@ -95,21 +95,11 @@ try:
 
 
     # ---------------------------------------------------------------------
-    def create_and_save_single_channel_images_with_pil(context, img_path):
+    def create_and_save_single_channel_images_with_pil(context, img_path, r, g, b, a, average, weighted_average,
+                                                       remained):
 
         ics = context.scene.ImageChannelSplitter
 
-        r = ics.is_red_channel
-        g = ics.is_green_channel
-        b = ics.is_blue_channel
-        a = ics.is_alpha_channel
-        average = ics.is_average
-        weighted_average = ics.is_weighted_average
-
-        # for remaining percentage display
-        selected_channels = [r, g, b, a, average, weighted_average]
-        remained = sum(1 for x in selected_channels if x)
-        del selected_channels
         wm = bpy.context.window_manager
         wm.progress_begin(0, remained)
         wm.progress_update(remained)
@@ -173,7 +163,8 @@ try:
                 0.33333, 0.33333, 0.33333, 0)
             bwimg = img.convert("L", rgb2xyz)
             bwimg.save(bwfilepath, img_format)
-            load_image_created_with_pil(bwfilepath, is_create_texture_node)
+            if not is_unlink:
+                load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del bwimg
             remained -= 1
             wm.progress_update(remained)
@@ -184,7 +175,8 @@ try:
             bwfilepath = os.path.join(save_dir, bwfilename)
             bwimg = img.convert('L')
             bwimg.save(bwfilepath, img_format)
-            load_image_created_with_pil(bwfilepath, is_create_texture_node)
+            if not is_unlink:
+                load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del bwimg
             remained -= 1
             wm.progress_update(remained)
@@ -193,7 +185,8 @@ try:
             bwfilename = "{}_red.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
             rr.save(bwfilepath, img_format)
-            load_image_created_with_pil(bwfilepath, is_create_texture_node)
+            if not is_unlink:
+                load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del rr
             remained -= 1
             wm.progress_update(remained)
@@ -202,7 +195,8 @@ try:
             bwfilename = "{}_green.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
             gg.save(bwfilepath, img_format)
-            load_image_created_with_pil(bwfilepath, is_create_texture_node)
+            if not is_unlink:
+                load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del gg
             remained -= 1
             wm.progress_update(remained)
@@ -211,7 +205,8 @@ try:
             bwfilename = "{}_blue.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
             bb.save(bwfilepath, img_format)
-            load_image_created_with_pil(bwfilepath, is_create_texture_node)
+            if not is_unlink:
+                load_image_created_with_pil(bwfilepath, is_create_texture_node)
             del bb
             remained -= 1
             wm.progress_update(remained)
@@ -271,7 +266,7 @@ def save_bw_image_with_blender(img, filepath, img_format, depth):
 
 
 # ---------------------------------------------------------------------
-def save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_create_texture_node):
+def save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink, is_create_texture_node):
     # img.file_format = img_format
 
     img.filepath_raw = os.path.join(save_dir, newfilename)
@@ -282,6 +277,8 @@ def save_created_images_with_blender(img, img_format, depth, newfilename, save_d
     #     bpy.data.images.remove(nimg)
 
     bw_img_path = img.filepath_raw
+    # we need to remove this image, because it is not grayscale, (we saved grayscale version of this image above)
+    # we will reload that saved grayscale image than blender will recognize it as a single channel image.
     img.user_clear()
     bpy.data.images.remove(img)
     del img
@@ -289,41 +286,43 @@ def save_created_images_with_blender(img, img_format, depth, newfilename, save_d
     # img = bpy.data.images.load(bw_img_path, check_existing=True)
     # check_existing=True implemented in 2, 76, 1 version of blender. To support older versions we will not use it.
     # instead;
-    img = None
-    for i in bpy.data.images:
-        if i.filepath_raw == bw_img_path:
-            i.reload()
-            img = i
-            # return
-            break
-    if not img:
-        img = bpy.data.images.load(bw_img_path)
 
-    if is_create_texture_node:
-        # active_node = bpy.context.active_node
-        mat = bpy.context.object.active_material
-        # get the nodes
-        nodes = mat.node_tree.nodes
+    if not is_unlink:
+        img = None
+        for i in bpy.data.images:
+            if i.filepath_raw == bw_img_path:
+                i.reload()
+                img = i
+                # return
+                break
+        if not img:
+            img = bpy.data.images.load(bw_img_path)
 
-        for n in nodes:
-            if n.label == img.name:
-                return
+        if is_create_texture_node:
+            # active_node = bpy.context.active_node
+            mat = bpy.context.object.active_material
+            # get the nodes
+            nodes = mat.node_tree.nodes
 
-        node_texture = nodes.new(type='ShaderNodeTexImage')
-        node_texture.image = img
-        node_texture.name = "Image Texture"
-        node_texture.label = img.name
-        node_texture.color_space = "NONE"
-        # node_texture.location = active_node.location[0], active_node.location[1] - active_node.bl_height_min
-        node_texture.hide = True
-        node_texture.select = False
-        node_texture.location = bpy.context.scene.ImageChannelSplitter.locationX, \
-                                bpy.context.scene.ImageChannelSplitter.locationY
+            for n in nodes:
+                if n.label == img.name:
+                    return
 
-        bpy.context.scene.ImageChannelSplitter.locationY -= 40
-        node_texture.width_hidden = bpy.context.active_node.width
-        # node_texture.select = True
-        # nodes.active = node_texture
+            node_texture = nodes.new(type='ShaderNodeTexImage')
+            node_texture.image = img
+            node_texture.name = "Image Texture"
+            node_texture.label = img.name
+            node_texture.color_space = "NONE"
+            # node_texture.location = active_node.location[0], active_node.location[1] - active_node.bl_height_min
+            node_texture.hide = True
+            node_texture.select = False
+            node_texture.location = bpy.context.scene.ImageChannelSplitter.locationX, \
+                                    bpy.context.scene.ImageChannelSplitter.locationY
+
+            bpy.context.scene.ImageChannelSplitter.locationY -= 40
+            node_texture.width_hidden = bpy.context.active_node.width
+            # node_texture.select = True
+            # nodes.active = node_texture
 
 
 # # ---------------------------------------------------------------------
@@ -334,20 +333,10 @@ def save_created_images_with_blender(img, img_format, depth, newfilename, save_d
 
 
 # ---------------------------------------------------------------------
-def create_single_channel_images_with_blender(context):
+def create_single_channel_images_with_blender(context, r, g, b, a, average, weighted_average, remained):
     ics = context.scene.ImageChannelSplitter
     src_image = context.active_node.image
 
-    r = ics.is_red_channel
-    g = ics.is_green_channel
-    b = ics.is_blue_channel
-    a = ics.is_alpha_channel
-    average = ics.is_average
-    weighted_average = ics.is_weighted_average
-
-    # for remaining percentage display
-    selected_channels = [r, g, b, a, average, weighted_average]
-    remained = sum(1 for x in selected_channels if x)
     wm = bpy.context.window_manager
     wm.progress_begin(0, remained)
     wm.progress_update(remained)
@@ -370,7 +359,7 @@ def create_single_channel_images_with_blender(context):
     else:
         depth = "8"
 
-    is_create_texture_node = ics.is_create_texture_node,
+    is_create_texture_node = ics.is_create_texture_node
     is_unlink = ics.is_unlink
 
     # save_dir = os.path.dirname(src_image.filepath)
@@ -396,90 +385,96 @@ def create_single_channel_images_with_blender(context):
 
     if average:
         newfilename = "{}_average.{}".format(basename_without_extension, ext)
-        nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
+        img = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
         for px in gl:
             p = (px[0] + px[1] + px[2]) / 3
             singlechannelpixellist.extend([p, p, p, px[3]])
 
-        nimg.pixels = singlechannelpixellist
-        # nimg.pixels[:] = singlechannelpixellist
+        img.pixels = singlechannelpixellist
+        # img.pixels[:] = singlechannelpixellist
 
         del singlechannelpixellist
-        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink,
+                                         is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
         # ics.progress = "{} / {} done".format(total-remained, total)
 
     if weighted_average:
         newfilename = "{}_weighted_average.{}".format(basename_without_extension, ext)
-        nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
+        img = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
         for px in gl:
             p = 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2]
             singlechannelpixellist.extend([p, p, p, px[3]])
 
-        nimg.pixels = singlechannelpixellist
+        img.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink,
+                                         is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
     if r:
         newfilename = "{}_red.{}".format(basename_without_extension, ext)
-        nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
+        img = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
         for px in gl:
             singlechannelpixellist.extend([px[0], px[0], px[0], px[3]])
 
-        nimg.pixels = singlechannelpixellist
+        img.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink,
+                                         is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
     if g:
         newfilename = "{}_green.{}".format(basename_without_extension, ext)
-        nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
+        img = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
         for px in gl:
             singlechannelpixellist.extend([px[1], px[1], px[1], px[3]])
 
-        nimg.pixels = singlechannelpixellist
+        img.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink,
+                                         is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
     if b:
         newfilename = "{}_blue.{}".format(basename_without_extension, ext)
-        nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
+        img = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
         for px in gl:
             singlechannelpixellist.extend([px[2], px[2], px[2], px[3]])
 
-        nimg.pixels = singlechannelpixellist
+        img.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink,
+                                         is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
     if a:
         newfilename = "{}_alpha.{}".format(basename_without_extension, ext)
-        nimg = bpy.data.images.new(newfilename, w, h, alpha=False)
+        img = bpy.data.images.new(newfilename, w, h, alpha=False)
 
         singlechannelpixellist = []
         for px in gl:
             singlechannelpixellist.extend([px[3], px[3], px[3], px[3]])
 
-        nimg.pixels = singlechannelpixellist
+        img.pixels = singlechannelpixellist
         del singlechannelpixellist
-        save_created_images_with_blender(nimg, img_format, depth, newfilename, save_dir, is_create_texture_node)
+        save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink,
+                                         is_create_texture_node)
         remained -= 1
         wm.progress_update(remained)
 
@@ -488,10 +483,9 @@ def create_single_channel_images_with_blender(context):
     wm.progress_end()
 
 
-# ------------------------------------------------------------------------
-#    storing properties in the active scene
-# ------------------------------------------------------------------------
-
+# ---------------------------------------------------------------------
+# storing properties in the active scene
+########################################################################
 class ICSPanelSettings(PropertyGroup):
     locationX = IntProperty(
         name="locationX",
@@ -599,6 +593,7 @@ class SplitChannelsButton(bpy.types.Operator):
     bl_idname = "ics.split_button"
     bl_label = "Split and Save"
 
+    # ---------------------------------------------------------------------
     @classmethod
     def poll(cls, context):
 
@@ -609,9 +604,27 @@ class SplitChannelsButton(bpy.types.Operator):
             if context.active_node.image.filepath:
                 return True
 
+    # ---------------------------------------------------------------------
     def execute(self, context):
-
         ics = context.scene.ImageChannelSplitter
+
+        r = ics.is_red_channel
+        g = ics.is_green_channel
+        b = ics.is_blue_channel
+        a = ics.is_alpha_channel
+        average = ics.is_average
+        weighted_average = ics.is_weighted_average
+
+        # for remaining percentage display, also for toggling "Split and Save" button enabled status.
+        selected_channels = [r, g, b, a, average, weighted_average]
+        # remained = sum(1 for x in selected_channels if x)
+        remained = sum(selected_channels)
+        del selected_channels
+
+        if not remained:
+            msg = 'You need to select at least one channel to process the image.'
+            self.report({'WARNING'}, msg)
+            return {'FINISHED'}
 
         if ics.is_custom_save_path:
             if not os.path.isdir(ics.custom_save_path):
@@ -643,17 +656,17 @@ class SplitChannelsButton(bpy.types.Operator):
                 self.report({'WARNING'}, msg)
                 return {'FINISHED'}
 
-            create_and_save_single_channel_images_with_pil(context, img_path)
+            create_and_save_single_channel_images_with_pil(context, img_path, r, g, b, a, average, weighted_average,
+                                                           remained)
         else:
-            create_single_channel_images_with_blender(context)
+            create_single_channel_images_with_blender(context, r, g, b, a, average, weighted_average, remained)
         # create_single_channel_images_with_blender(context)
 
         # return {'RUNNING_MODAL'}
         return {'FINISHED'}
 
-        # ------------------------------------------------------------------------
 
-
+# ---------------------------------------------------------------------
 # PANEL
 ########################################################################
 class ImageChannelSplitterPanel(Panel):
@@ -667,7 +680,7 @@ class ImageChannelSplitterPanel(Panel):
 
     # bl_context = "scene"
 
-
+    # ---------------------------------------------------------------------
     def draw(self, context):
         layout = self.layout
         scene = context.scene
@@ -678,7 +691,8 @@ class ImageChannelSplitterPanel(Panel):
         box = layout.box()
         row = box.row()
 
-        # if context.active_node and context.active_node.bl_idname in ["ShaderNodeTexEnvironment", "ShaderNodeTexImage"]:
+        # if context.active_node and context.active_node.bl_idname
+        #     in ["ShaderNodeTexEnvironment", "ShaderNodeTexImage"]:
         if context.active_node \
                 and hasattr(context.active_node, 'image') \
                 and hasattr(context.active_node.image, "filepath_raw"):
@@ -687,7 +701,6 @@ class ImageChannelSplitterPanel(Panel):
             #     if img.mode == "RGBA":
             #         draw_alpha = True
             #     img.close()
-
 
             row.label(text='Select Channels', icon='IMAGE_RGB')
 
@@ -716,9 +729,13 @@ class ImageChannelSplitterPanel(Panel):
             row.label(text='Options', icon='SCRIPTWIN')
             row = box.row()
             row.prop(icsplitter, "is_create_texture_node", text="Create Texture Node")
+            if icsplitter.is_unlink:
+                row.enabled = False
 
             row = box.row()
             row.prop(icsplitter, "is_unlink", text="Unlink After Save")
+            if icsplitter.is_create_texture_node:
+                row.enabled = False
             row = box.row()
             # rowCustomPath.prop(icsplitter, "is_custom_save_path", text="")
             # icsplitter.custom_save_path = context.active_node.image.filepath
@@ -746,17 +763,18 @@ class ImageChannelSplitterPanel(Panel):
 
 # ------------------------------------------------------------------------
 # register and unregister functions
-# ------------------------------------------------------------------------
-
+# ---------------------------------------------------------------------
 def register():
     bpy.utils.register_module(__name__)
     bpy.types.Scene.ImageChannelSplitter = PointerProperty(type=ICSPanelSettings)
 
 
+# ---------------------------------------------------------------------
 def unregister():
     bpy.utils.unregister_module(__name__)
     del bpy.types.Scene.ImageChannelSplitter
 
 
+# ---------------------------------------------------------------------
 if __name__ == "__main__":
     register()
