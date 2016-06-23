@@ -615,7 +615,9 @@ class SplitChannelsButton(bpy.types.Operator):
         average = ics.is_average
         weighted_average = ics.is_weighted_average
 
-        # for remaining percentage display, also for toggling "Split and Save" button enabled status.
+        # for remaining percentage display, also for detecting if any channel is selected.
+        # yes, we can move this to poll method and if no channel is selected the button would be disabled but it adds
+        # some unnecessary overhead.
         selected_channels = [r, g, b, a, average, weighted_average]
         # remained = sum(1 for x in selected_channels if x)
         remained = sum(selected_channels)
