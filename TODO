@@ -1,0 +1,14 @@
+
+ +++  PIL  Version +++
+ ---------------------
+ +++  An alpha channel detecting mechanism without overhead. (To toggle the alpha channel button in the ui.)
+ +    16 bit tif and png support.
+ ?    Maybe add all the formats that pil supports..
+
+
+
+ +++  Blender Api Version  +++
+ -----------------------------
+ ++   Use numpy for some optimizations.
+ +    An option to save alpha channel if there is an alpha channel in the source image.
+        (8-16 bit grayscale PNGs support alpha channels. )

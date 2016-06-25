@@ -18,7 +18,7 @@
 
 bl_info = {
     "name": "Image Channel Splitter",
-    "description": "Splits image channels to individual single channel grayscale images. ",
+    "description": "Splits and saves image channels to individual single channel grayscale images. ",
     "author": "Erdinc Yilmaz",
     "version": (1, 0, 0),
     "blender": (2, 70, 0),
@@ -32,6 +32,7 @@ bl_info = {
 
 import os.path
 import bpy
+# from numpy import interp
 
 from bpy.props import (StringProperty,
                        BoolProperty,
@@ -51,48 +52,14 @@ try:
     is_pil_imported = True
 
     # ---------------------------------------------------------------------
-    def load_image_created_with_pil(bw_img_path, is_create_texture_node):
-        # img.file_format = img_format
+    def save_bw_image_with_pil(img_format, bwimg, bwfilepath, jpg_quality, png_compression):
 
-        # img = bpy.data.images.load(bw_img_path, check_existing=True)
-        # check_existing=True implemented in 2, 76, 1 version of blender. To support older versions we will not use it.
-        # instead;
-        img = None
-        for i in bpy.data.images:
-            if i.filepath_raw == bw_img_path:
-                i.reload()
-                img = i
-                # return
-                break
-        if not img:
-            img = bpy.data.images.load(bw_img_path)
-
-        if is_create_texture_node:
-            # active_node = bpy.context.active_node
-            mat = bpy.context.object.active_material
-            # get the nodes
-            nodes = mat.node_tree.nodes
-
-            for n in nodes:
-                if n.label == img.name:
-                    return
-
-            node_texture = nodes.new(type='ShaderNodeTexImage')
-            node_texture.image = img
-            node_texture.name = "Image Texture"
-            node_texture.label = img.name
-            node_texture.color_space = "NONE"
-            # node_texture.location = active_node.location[0], active_node.location[1] - active_node.bl_height_min
-            node_texture.hide = True
-            node_texture.select = False
-            node_texture.location = bpy.context.scene.ImageChannelSplitter.locationX, \
-                                    bpy.context.scene.ImageChannelSplitter.locationY
-
-            bpy.context.scene.ImageChannelSplitter.locationY -= 40
-            node_texture.width_hidden = bpy.context.active_node.width
-            # node_texture.select = True
-            # nodes.active = node_texture
-
+        if img_format == "JPEG":
+            bwimg.save(bwfilepath, img_format, quality=jpg_quality)
+        elif img_format == "PNG":
+            bwimg.save(bwfilepath, img_format, compress_level=png_compression)
+        else:
+            bwimg.save(bwfilepath, img_format)
 
     # ---------------------------------------------------------------------
     def create_and_save_single_channel_images_with_pil(context, img_path, r, g, b, a, average, weighted_average,
@@ -100,7 +67,7 @@ try:
 
         ics = context.scene.ImageChannelSplitter
 
-        wm = bpy.context.window_manager
+        wm = context.window_manager
         wm.progress_begin(0, remained)
         wm.progress_update(remained)
         # ics.progress = "Please wait !"
@@ -126,6 +93,9 @@ try:
         #     depth = ics.depth_menu
         # else:
         #     depth = "8"
+
+        jpg_quality = ics.jpg_quality
+        png_compression = ics.png_compression_pil
 
         is_create_texture_node = ics.is_create_texture_node
         is_unlink = ics.is_unlink
@@ -159,12 +129,26 @@ try:
             bwfilepath = os.path.join(save_dir, bwfilename)
 
             # bwimg = convert_to_gs(img)
-            rgb2xyz = (
+            # TODO :
+            avarage_matrix = (
                 0.33333, 0.33333, 0.33333, 0)
-            bwimg = img.convert("L", rgb2xyz)
-            bwimg.save(bwfilepath, img_format)
+            if mode == "RGBA":
+                # The matrix argument only supports “L” and “RGB”.
+                # so we are converting "RGBA" image to "RGB"
+                nimg = Image.new("RGB", img.size)
+                nimg.paste(img)
+                # nimg = img.copy()
+                # nimg.convert("RGB")
+                bwimg = nimg.convert("L", avarage_matrix)
+                del nimg
+            else:
+                bwimg = img.convert("L", avarage_matrix)
+
+            save_bw_image_with_pil(img_format, bwimg, bwfilepath, jpg_quality, png_compression)
+
             if not is_unlink:
-                load_image_created_with_pil(bwfilepath, is_create_texture_node)
+                load_image_and_create_node(bwfilepath, is_create_texture_node)
+
             del bwimg
             remained -= 1
             wm.progress_update(remained)
@@ -174,9 +158,9 @@ try:
             bwfilename = "{}_weighted_average.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
             bwimg = img.convert('L')
-            bwimg.save(bwfilepath, img_format)
+            save_bw_image_with_pil(img_format, bwimg, bwfilepath, jpg_quality, png_compression)
             if not is_unlink:
-                load_image_created_with_pil(bwfilepath, is_create_texture_node)
+                load_image_and_create_node(bwfilepath, is_create_texture_node)
             del bwimg
             remained -= 1
             wm.progress_update(remained)
@@ -184,9 +168,9 @@ try:
         if r:
             bwfilename = "{}_red.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
-            rr.save(bwfilepath, img_format)
+            save_bw_image_with_pil(img_format, rr, bwfilepath, jpg_quality, png_compression)
             if not is_unlink:
-                load_image_created_with_pil(bwfilepath, is_create_texture_node)
+                load_image_and_create_node(bwfilepath, is_create_texture_node)
             del rr
             remained -= 1
             wm.progress_update(remained)
@@ -194,9 +178,9 @@ try:
         if g:
             bwfilename = "{}_green.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
-            gg.save(bwfilepath, img_format)
+            save_bw_image_with_pil(img_format, gg, bwfilepath, jpg_quality, png_compression)
             if not is_unlink:
-                load_image_created_with_pil(bwfilepath, is_create_texture_node)
+                load_image_and_create_node(bwfilepath, is_create_texture_node)
             del gg
             remained -= 1
             wm.progress_update(remained)
@@ -204,9 +188,9 @@ try:
         if b:
             bwfilename = "{}_blue.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
-            bb.save(bwfilepath, img_format)
+            save_bw_image_with_pil(img_format, bb, bwfilepath, jpg_quality, png_compression)
             if not is_unlink:
-                load_image_created_with_pil(bwfilepath, is_create_texture_node)
+                load_image_and_create_node(bwfilepath, is_create_texture_node)
             del bb
             remained -= 1
             wm.progress_update(remained)
@@ -223,14 +207,15 @@ try:
             bwfilename = "{}_alpha.{}".format(basename_without_extension, ext)
             bwfilepath = os.path.join(save_dir, bwfilename)
             if aa:
-                aa.save(bwfilepath, img_format)
+                save_bw_image_with_pil(img_format, aa, bwfilepath, jpg_quality, png_compression)
                 del aa
             else:
                 alpha_img = Image.new('L', img.size, 255)
-                alpha_img.save(bwfilepath, img_format)
+                save_bw_image_with_pil(img_format, alpha_img, bwfilepath, jpg_quality, png_compression)
                 del alpha_img
 
-            load_image_created_with_pil(bwfilepath, is_create_texture_node)
+            if not is_unlink:
+                load_image_and_create_node(bwfilepath, is_create_texture_node)
             remained -= 1
             wm.progress_update(remained)
 
@@ -244,86 +229,100 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------
+def load_image_and_create_node(bw_img_path, is_create_texture_node):
+    # img.file_format = img_format
+
+    # img = bpy.data.images.load(bw_img_path, check_existing=True)
+    # check_existing=True implemented in 2, 76, 1 version of blender. To support older versions we will not use it.
+    # instead;
+    img = None
+    for i in bpy.data.images:
+        if i.filepath_raw == bw_img_path:
+            i.reload()
+            img = i
+            # return
+            break
+    if not img:
+        img = bpy.data.images.load(bw_img_path)
+
+    if is_create_texture_node:
+        # active_node = bpy.context.active_node
+        mat = bpy.context.object.active_material
+        # get the nodes
+        nodes = mat.node_tree.nodes
+
+        for n in nodes:
+            if n.label == img.name:
+                return
+
+        node_texture = nodes.new(type='ShaderNodeTexImage')
+        node_texture.image = img
+        node_texture.name = "Image Texture"
+        node_texture.label = img.name
+        node_texture.color_space = "NONE"
+        # node_texture.location = active_node.location[0], active_node.location[1] - active_node.bl_height_min
+        node_texture.hide = True
+        node_texture.select = False
+        node_texture.location = bpy.context.scene.ImageChannelSplitter.locationX, \
+                                bpy.context.scene.ImageChannelSplitter.locationY
+
+        bpy.context.scene.ImageChannelSplitter.locationY -= 40
+        node_texture.width_hidden = bpy.context.active_node.width
+        # node_texture.select = True
+        # nodes.active = node_texture
+
+
+# ---------------------------------------------------------------------
 def save_bw_image_with_blender(img, filepath, img_format, depth):
     settings = bpy.context.scene.render.image_settings
+    # cy = bpy.context.scene.cycles
+    ics = bpy.context.scene.ImageChannelSplitter
 
     # save current render settings of the scene
     current_format = settings.file_format
     current_mode = settings.color_mode
     current_depth = settings.color_depth
+    current_quality = settings.quality
+    current_compression = settings.compression
+    # is_transp = cy.film_transparent
 
     # temporary altering render settings of the scene
     settings.file_format = img_format
     settings.color_mode = "BW"
     settings.color_depth = depth
+    settings.quality = ics.jpg_quality
+    settings.compression = ics.png_compression_blender
+    # cy.film_transparent = False
 
-    img.save_render(filepath)
+    # img.file_format = img_format
+    # img.save()
+    img.save_render(filepath, scene=bpy.context.scene)
 
     # reset to original render settings of the scene
     settings.file_format = current_format
     settings.color_mode = current_mode
     settings.color_depth = current_depth
+    settings.quality = current_quality
+    settings.compression = current_compression
+    # cy.film_transparent = is_transp
 
 
 # ---------------------------------------------------------------------
 def save_created_images_with_blender(img, img_format, depth, newfilename, save_dir, is_unlink, is_create_texture_node):
-    # img.file_format = img_format
 
-    img.filepath_raw = os.path.join(save_dir, newfilename)
-    # img.save()
-    save_bw_image_with_blender(img, img.filepath_raw, img_format, depth)
-    # if is_unlink:
-    #     nimg.user_clear()
-    #     bpy.data.images.remove(nimg)
+    bw_img_path = os.path.join(save_dir, newfilename)
+    img.filepath_raw = bw_img_path
 
-    bw_img_path = img.filepath_raw
+    save_bw_image_with_blender(img, bw_img_path, img_format, depth)
+
     # we need to remove this image, because it is not grayscale, (we saved grayscale version of this image above)
     # we will reload that saved grayscale image than blender will recognize it as a single channel image.
     img.user_clear()
     bpy.data.images.remove(img)
     del img
 
-    # img = bpy.data.images.load(bw_img_path, check_existing=True)
-    # check_existing=True implemented in 2, 76, 1 version of blender. To support older versions we will not use it.
-    # instead;
-
     if not is_unlink:
-        img = None
-        for i in bpy.data.images:
-            if i.filepath_raw == bw_img_path:
-                i.reload()
-                img = i
-                # return
-                break
-        if not img:
-            img = bpy.data.images.load(bw_img_path)
-
-        if is_create_texture_node:
-            # active_node = bpy.context.active_node
-            mat = bpy.context.object.active_material
-            # get the nodes
-            nodes = mat.node_tree.nodes
-
-            for n in nodes:
-                if n.label == img.name:
-                    return
-
-            node_texture = nodes.new(type='ShaderNodeTexImage')
-            node_texture.image = img
-            node_texture.name = "Image Texture"
-            node_texture.label = img.name
-            node_texture.color_space = "NONE"
-            # node_texture.location = active_node.location[0], active_node.location[1] - active_node.bl_height_min
-            node_texture.hide = True
-            node_texture.select = False
-            node_texture.location = bpy.context.scene.ImageChannelSplitter.locationX, \
-                                    bpy.context.scene.ImageChannelSplitter.locationY
-
-            bpy.context.scene.ImageChannelSplitter.locationY -= 40
-            node_texture.width_hidden = bpy.context.active_node.width
-            # node_texture.select = True
-            # nodes.active = node_texture
-
+        load_image_and_create_node(bw_img_path, is_create_texture_node)
 
 # # ---------------------------------------------------------------------
 # def get_chunks(l, n):
@@ -337,7 +336,7 @@ def create_single_channel_images_with_blender(context, r, g, b, a, average, weig
     ics = context.scene.ImageChannelSplitter
     src_image = context.active_node.image
 
-    wm = bpy.context.window_manager
+    wm = context.window_manager
     wm.progress_begin(0, remained)
     wm.progress_update(remained)
     # ics.progress = "Please wait !"
@@ -567,6 +566,35 @@ class ICSPanelSettings(PropertyGroup):
         # update=update_func
     )
 
+    png_compression_blender = bpy.props.IntProperty(
+        name="Compression",
+        description="Amount of time to determine best compression:"
+                    " 0 = no compression with fast file output, "
+                    "100 = maximum lossless compression with slow file output.",
+        default=15,
+        subtype="PERCENTAGE",
+        min=0, max=100)
+
+    # pil uses 0-9 range, blender uses 0-100 range for png compression.
+    # we can remap ranges with this
+    # png_compression = int(interp(ics.png_compression_blender, [1, 100], [1, 9]))
+    # but user will not know that there is no difference between forex. 100 and 90.
+    # so png_compression_pil is created.
+
+    png_compression_pil = bpy.props.IntProperty(
+        name="Compression",
+        description="ZLIB compression level, a number between 0 and 9: 1 gives best speed,"
+                    " 9 gives best compression, 0 gives no compression at all. Default is 6.",
+        default=6,
+        min=0, max=9)
+
+    jpg_quality = bpy.props.IntProperty(
+        name="Quality",
+        description="Quality for image formats that supports lossy compression.",
+        default=90,
+        subtype="PERCENTAGE",
+        min=0, max=100)
+
     is_custom_save_path = BoolProperty(
         name="",
         description="Check this to set custom save path",
@@ -686,7 +714,7 @@ class ImageChannelSplitterPanel(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        icsplitter = scene.ImageChannelSplitter
+        ics = scene.ImageChannelSplitter
 
         # draw_alpha = False
 
@@ -708,56 +736,69 @@ class ImageChannelSplitterPanel(Panel):
 
             # col = layout.column()
             # col.label(text="test")
-            # col.prop(icsplitter, "primitive")
+            # col.prop(ics, "primitive")
 
             row = box.row()
-            row.prop(icsplitter, "is_red_channel", text="Red Channel", icon="COLOR_RED")
+            row.prop(ics, "is_red_channel", text="Red Channel", icon="COLOR_RED")
             row = box.row()
-            row.prop(icsplitter, "is_green_channel", text="Green Channel", icon="COLOR_GREEN")
+            row.prop(ics, "is_green_channel", text="Green Channel", icon="COLOR_GREEN")
             row = box.row()
-            row.prop(icsplitter, "is_blue_channel", text="Blue Channel", icon="COLOR_BLUE")
+            row.prop(ics, "is_blue_channel", text="Blue Channel", icon="COLOR_BLUE")
 
             # if draw_alpha:
             row = box.row()
-            row.prop(icsplitter, "is_alpha_channel", text="Alpha Channel", icon="IMAGE_ALPHA")
+            row.prop(ics, "is_alpha_channel", text="Alpha Channel", icon="IMAGE_ALPHA")
 
             row = box.row()
-            row.prop(icsplitter, "is_average", text="Average", icon="SEQ_SPLITVIEW")
+            row.prop(ics, "is_average", text="Average", icon="SEQ_SPLITVIEW")
             row = box.row()
-            row.prop(icsplitter, "is_weighted_average", text="Weighted Average", icon="SEQ_LUMA_WAVEFORM")
+            row.prop(ics, "is_weighted_average", text="Weighted Average", icon="SEQ_LUMA_WAVEFORM")
             # layout.separator()
             box = layout.box()
             row = box.row()
             row.label(text='Options', icon='SCRIPTWIN')
             row = box.row()
-            row.prop(icsplitter, "is_create_texture_node", text="Create Texture Node")
-            if icsplitter.is_unlink:
+            row.prop(ics, "is_create_texture_node", text="Create Texture Node")
+            if ics.is_unlink:
                 row.enabled = False
 
             row = box.row()
-            row.prop(icsplitter, "is_unlink", text="Unlink After Save")
-            if icsplitter.is_create_texture_node:
+            row.prop(ics, "is_unlink", text="Unlink After Save")
+            if ics.is_create_texture_node:
                 row.enabled = False
             row = box.row()
-            # rowCustomPath.prop(icsplitter, "is_custom_save_path", text="")
-            # icsplitter.custom_save_path = context.active_node.image.filepath
-            row.prop(icsplitter, "is_custom_save_path", text="Custom Save Directory")
-            if icsplitter.is_custom_save_path:
+            # rowCustomPath.prop(ics, "is_custom_save_path", text="")
+            # ics.custom_save_path = context.active_node.image.filepath
+            row.prop(ics, "is_custom_save_path", text="Custom Save Directory")
+            if ics.is_custom_save_path:
                 row = box.row()
-                row.prop(icsplitter, "custom_save_path")
+                row.prop(ics, "custom_save_path")
             row = box.row()
-            row.prop(icsplitter, "image_format_menu")
+            row.prop(ics, "image_format_menu")
             row = box.row()
 
-            # TODO: pil png p mode, 16 bit support says experimental. tiff has problems
+            # TODO: pil png I:16 mode, 16 bit support says experimental. and tiff has problems
+            # for now bypassing 16 bit operations
             # https://stackoverflow.com/questions/7247371/python-and-16-bit-tiff
-            if not is_pil_imported and icsplitter.image_format_menu in ["PNG", "TIFF"]:
-                row.prop(icsplitter, "depth_menu", expand=True)
+            if not is_pil_imported and ics.image_format_menu in ["PNG", "TIFF"]:
+            # if ics.image_format_menu in ["PNG", "TIFF"]:
+                row.prop(ics, "depth_menu", expand=True)
+
+            if ics.image_format_menu == "PNG":
+                row = box.row()
+                if not is_pil_imported:
+                    row.prop(ics, 'png_compression_blender', slider=True)
+                else:
+                    row.prop(ics, 'png_compression_pil', slider=True)
+
+            elif ics.image_format_menu == "JPEG":
+                row = box.row()
+                row.prop(ics, 'jpg_quality', slider=True)
 
             row = box.row()
             row.operator("ics.split_button", text="Split And Save", icon="RENDER_STILL")
             # row = box.row()
-            # row.prop(icsplitter, "progress")
+            # row.prop(ics, "progress")
 
         else:
             row.label(text='Please select an image node with a loaded image', icon='IMAGE_RGB')
