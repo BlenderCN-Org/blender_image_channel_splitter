@@ -134,11 +134,9 @@ try:
                 0.33333, 0.33333, 0.33333, 0)
             if mode == "RGBA":
                 # The matrix argument only supports “L” and “RGB”.
-                # so we are converting "RGBA" image to "RGB"
-                nimg = Image.new("RGB", img.size)
-                nimg.paste(img)
-                # nimg = img.copy()
-                # nimg.convert("RGB")
+                # so we are converting "RGBA" image to "RGB",
+                # than we convert "RGB" to "L" with matrix.
+                nimg = img.convert("RGB")
                 bwimg = nimg.convert("L", avarage_matrix)
                 del nimg
             else:
