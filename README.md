@@ -14,6 +14,7 @@ It takes 10-50 seconds to process images and it may use a lot of RAM for the tim
 (After that it frees the RAM.)
 
 **2K** textures uses **~1GB RAM**
+
 **3K** textures uses **~2.5GB RAM**
 
 and grows exponantial-ish-ly.
