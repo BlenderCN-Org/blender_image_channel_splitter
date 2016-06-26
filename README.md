@@ -38,7 +38,7 @@ to your system's python.
 And then, you can just copy the "PIL" directory form your system's python's site-packages directory
 to blender's python's site-packages directory. :) 
 
-#####Alternative installation ways:
+#####Alternative pillow installation ways:
 InshaAllah, soon ...
 
 
