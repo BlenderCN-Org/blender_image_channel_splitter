@@ -244,20 +244,34 @@ def load_image_and_create_node(bw_img_path, is_create_texture_node):
         img = bpy.data.images.load(bw_img_path)
 
     if is_create_texture_node:
-        # active_node = bpy.context.active_node
-        mat = bpy.context.object.active_material
-        # get the nodes
-        nodes = mat.node_tree.nodes
+        tree_type = bpy.context.space_data.tree_type
+        # node_tree = context.scene.node_tree
+        # node_tree = context.space_data.node_tree
+        nodes = bpy.context.space_data.node_tree.nodes
 
         for n in nodes:
             if n.label == img.name:
                 return
 
-        node_texture = nodes.new(type='ShaderNodeTexImage')
+        if tree_type == 'ShaderNodeTree':
+            # # active_node = bpy.context.active_node
+            # mat = bpy.context.object.active_material
+            # # get the nodes
+            # nodes = mat.node_tree.nodes
+            node_texture = nodes.new(type='ShaderNodeTexImage')
+            node_texture.color_space = "NONE"
+
+        if tree_type == 'CompositorNodeTree':
+            node_texture = nodes.new(type='CompositorNodeImage')
+
+        if tree_type == 'TextureNodeTree':
+            node_texture = nodes.new(type='TextureNodeImage')
+
+        # node_texture = nodes.new(type='ShaderNodeTexImage')
         node_texture.image = img
         node_texture.name = "Image Texture"
         node_texture.label = img.name
-        node_texture.color_space = "NONE"
+        # node_texture.color_space = "NONE"
         # node_texture.location = active_node.location[0], active_node.location[1] - active_node.bl_height_min
         node_texture.hide = True
         node_texture.select = False
